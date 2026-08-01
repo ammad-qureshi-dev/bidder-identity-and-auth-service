@@ -3,21 +3,27 @@ bidder.app */
 package com.bidder.service.service;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
+import com.bidder.service.models.entities.AccessToken;
+import com.bidder.service.models.entities.AppUser;
+import com.bidder.service.models.entities.TokenType;
 import com.bidder.service.repository.AccessTokenRepository;
 import com.bidder.service.repository.AppUserRepository;
 import com.bidder.service.utils.HashingUtil;
+import config.EventTopics;
+import dtos.request.TokenRequest;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import models.ContactType;
-import models.dtos.request.TokenRequest;
-import models.entities.AccessToken;
-import models.entities.AppUser;
-import models.entities.TokenType;
+import models.TemplateName;
+import models.dtos.request.SendNotificationRequest;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import static com.bidder.service.utils.Constants.Auth.*;
@@ -33,16 +39,55 @@ public class PasswordService {
 	@Value("${auth.registration-pwd.allow-simple}")
 	private boolean allowSimplePassword;
 
-	private static final int PASSWORD_RESET_EXPIRY_MINUTES = 15;
-	private static final int ACCOUNT_VERIFICATION_EXPIRY_MINUTES = 60;
+	@Value("${token-expiry.password-reset}")
+	private int passwordResetExpiry;
+
+	@Value("${token-expiry.account-verification}")
+	private int accountVerificationExpiry;
+
 	private static final String PASSWORD_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
 	private static final Pattern PATTERN = Pattern.compile(PASSWORD_REGEX);
 
 	private final AppUserService appUserService;
 	private final AppUserRepository appUserRepository;
 	private final AccessTokenRepository accessTokenRepository;
+	private final KafkaTemplate<String, Object> kafkaTemplate;
+
+	public void sendPasswordResetLinkV2(UUID appUserId, ContactType contactType) {
+		// ToDo: find a better way lol
+		Map<ContactType, String> recipientConfig;
+
+		var appUser = appUserRepository.findById(appUserId);
+
+		if (appUser.isEmpty()) {
+			log.error("Could not generate a Password Reset Link, app-user with id = {} not found", appUserId);
+			return;
+		}
+
+		if (ContactType.PHONE.equals(contactType)) {
+			recipientConfig = Map.of(contactType, appUser.get().getPhoneNumber());
+		} else if (ContactType.EMAIL.equals(contactType)) {
+			recipientConfig = Map.of(contactType, appUser.get().getEmail());
+		} else {
+			throw new RuntimeException("Contact Type not implemented");
+		}
+
+		var token = generateAndSaveToken(appUser.get(), TokenType.PASSWORD_RESET, passwordResetExpiry);
+
+		if (token.isEmpty()) {
+			log.info("Password Reset Token already exists for app-user with id = {}", appUserId);
+			return;
+		}
+
+		var resetUrl = clientUrl + "/password/reset?token=" + token.get();
+		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
+				new SendNotificationRequest(appUserId, TemplateName.PASSWORD_RESET_LINK_SENT, recipientConfig,
+						Map.of("fullName", appUser.get().getFullName(), "expiryMinutes", passwordResetExpiry / 60,
+								"resetUrl", resetUrl)));
+	}
 
 	public void sendPasswordResetLink(TokenRequest request) {
+
 		if (ContactType.EMAIL.equals(request.contactMethod())) {
 			sendPasswordLinkByEmail(request.email());
 		} else if (ContactType.PHONE.equals(request.contactMethod())) {
@@ -50,52 +95,6 @@ public class PasswordService {
 		} else {
 			throw new RuntimeException("Method selected does not exist");
 		}
-	}
-
-	public void verifyAccount(String token, TokenRequest request) throws IllegalAccessException {
-		var hashedToken = HashingUtil.generateHash(token);
-		AppUser appUser = getAppUserByContactMethod(request);
-
-		var accessToken = accessTokenRepository.findByToken(hashedToken, TokenType.VERIFICATION);
-		validateClientToken(accessToken, token, TokenType.VERIFICATION);
-
-		appUser.setVerifiedAccount(true);
-		appUserRepository.save(appUser);
-		log.info("User account successfully verified");
-
-		accessTokenRepository.delete(accessToken.get());
-
-		// ToDo: kafka event for account_verified
-
-	}
-
-	public void sendAccountVerificationLink(TokenRequest request) {
-		if (ContactType.EMAIL.equals(request.contactMethod())) {
-			sendAccountVerificationLinkByEmail(request.email());
-		} else if (ContactType.PHONE.equals(request.contactMethod())) {
-			throw new RuntimeException("Password Reset by mobile not implemented");
-		} else {
-			throw new RuntimeException("Method selected does not exist");
-		}
-	}
-
-	private void sendAccountVerificationLinkByEmail(String email) {
-		var appUser = appUserRepository.findByEmail(email);
-
-		if (appUser.isEmpty()) {
-			return;
-		}
-
-		var token = generateAndSaveToken(appUser.get(), TokenType.VERIFICATION, ACCOUNT_VERIFICATION_EXPIRY_MINUTES);
-
-		if (token.isEmpty()) {
-			log.info("Account Verification Token already exists for {}", email);
-			return;
-		}
-
-		var resetUrl = clientUrl + "/verify-account?token=" + token.get();
-
-		// ToDo: kafka event for verify_account
 	}
 
 	public void resetPassword(String token, TokenRequest request) throws IllegalAccessException {
@@ -108,11 +107,13 @@ public class PasswordService {
 		var hashedPassword = HashingUtil.generateHash(request.password());
 		appUser.setPassword(hashedPassword);
 		appUserRepository.save(appUser);
-		log.info("Password successfully reset");
+		log.info("Password successfully reset for app-user-id = {}", appUser.getId());
 
-		accessTokenRepository.delete(passwordResetToken.get());
+		passwordResetToken.ifPresent(accessTokenRepository::delete);
 
-		// toDo: kafka event for password was reset
+		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
+				new SendNotificationRequest(appUser.getId(), TemplateName.PASSWORD_UPDATED,
+						appUserService.getPreferredContactType(appUser), Map.of("fullName", appUser.getFullName())));
 	}
 
 	public boolean isValidPassword(String password) {
@@ -139,7 +140,7 @@ public class PasswordService {
 			return;
 		}
 
-		var token = generateAndSaveToken(appUser.get(), TokenType.PASSWORD_RESET, PASSWORD_RESET_EXPIRY_MINUTES);
+		var token = generateAndSaveToken(appUser.get(), TokenType.PASSWORD_RESET, passwordResetExpiry);
 
 		if (token.isEmpty()) {
 			log.info("Password Reset Token already exists for {}", email);
@@ -160,7 +161,7 @@ public class PasswordService {
 	 * @return token if newly created, return nothing if a token already exists and
 	 *         is unexpired
 	 */
-	private Optional<String> generateAndSaveToken(AppUser appUser, TokenType tokenType, int expiryMinutes) {
+	public Optional<String> generateAndSaveToken(AppUser appUser, TokenType tokenType, int expirySeconds) {
 		var currentToken = accessTokenRepository.findByAppUserId(appUser.getId(), tokenType);
 
 		if (currentToken.isPresent()) {
@@ -176,7 +177,7 @@ public class PasswordService {
 
 		var token = HashingUtil.generateToken();
 		var passwordResetToken = AccessToken.builder().appUser(appUser).token(HashingUtil.generateHash(token))
-				.expiresAt(LocalDateTime.now().plusMinutes(expiryMinutes)).tokenType(tokenType).build();
+				.expiresAt(LocalDateTime.now().plusSeconds(expirySeconds)).tokenType(tokenType).build();
 		accessTokenRepository.save(passwordResetToken);
 		return Optional.of(token);
 	}

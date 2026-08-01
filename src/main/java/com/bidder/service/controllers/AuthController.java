@@ -4,27 +4,23 @@ package com.bidder.service.controllers;
 
 import java.util.UUID;
 
-import com.bidder.service.models.response.ApiResponse;
 import com.bidder.service.service.AuthService;
 import com.bidder.service.service.JwtService;
 import com.bidder.service.service.PasswordService;
+import dtos.request.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import models.dtos.request.LoginRequest;
-import models.dtos.request.RegisterAppUserRequest;
-import models.dtos.request.TokenRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import response.ApiResponse;
 
-import static com.bidder.service.utils.Constants.Controller.BASE_URI;
-import static com.bidder.service.utils.Constants.Controller.V1;
+import static com.bidder.service.utils.Constants.Controller.*;
 
 @Slf4j
 @RestController
-@RequestMapping(BASE_URI + V1 + "/auth")
+@RequestMapping(BASE_URI_V1 + "/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -54,32 +50,32 @@ public class AuthController {
 				jwtService.clearTokenCookieHeader(), HttpStatus.OK);
 	}
 
-	// ToDo: add api rate limiter
-	@PostMapping("/password/reset")
-	public ResponseEntity<ApiResponse<Boolean>> sendPasswordResetLink(
-			@RequestParam(value = "token", required = false) String token, @RequestBody TokenRequest request)
-			throws IllegalAccessException {
+	@PostMapping("/password/reset/send-link")
+	public ResponseEntity<ApiResponse<Boolean>> sendPasswordResetLink(@RequestBody SendLinkMethodRequest request,
+			@RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
 
-		if (StringUtils.hasLength(token)) {
-			passwordService.resetPassword(token, request);
-		} else {
-			passwordService.sendPasswordResetLink(request);
-		}
-
+		passwordService.sendPasswordResetLinkV2(appUserId, request.contactType());
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
 	}
 
-	@PostMapping("/verify-account")
-	public ResponseEntity<ApiResponse<Boolean>> verifyAccount(
-			@RequestParam(value = "token", required = false) String token, @RequestBody TokenRequest request)
+	@PutMapping("/password/reset/set-password/{token}")
+	public ResponseEntity<ApiResponse<Boolean>> setPassword(@PathVariable("token") String token,
+			@RequestBody TokenRequest request) throws IllegalAccessException {
+		passwordService.resetPassword(token, request);
+		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
+	}
+
+	@PostMapping("/account-verification/send-link")
+	public ResponseEntity<ApiResponse<Boolean>> sendAccountVerificationLink(@RequestBody SendLinkMethodRequest request,
+			@RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
+		authService.sendAccountVerificationLink(request, appUserId);
+		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
+	}
+
+	@PutMapping("/account-verification/verify")
+	public ResponseEntity<ApiResponse<Boolean>> verifyAccount(@RequestBody VerifyAccountRequest request)
 			throws IllegalAccessException {
-
-		if (StringUtils.hasLength(token)) {
-			passwordService.verifyAccount(token, request);
-		} else {
-			passwordService.sendAccountVerificationLink(request);
-		}
-
+		authService.verifyAccount(request.token());
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
 	}
 }

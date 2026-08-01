@@ -5,8 +5,8 @@ package com.bidder.service.repository;
 import java.util.Optional;
 import java.util.UUID;
 
-import models.entities.AccessToken;
-import models.entities.TokenType;
+import com.bidder.service.models.entities.AccessToken;
+import com.bidder.service.models.entities.TokenType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

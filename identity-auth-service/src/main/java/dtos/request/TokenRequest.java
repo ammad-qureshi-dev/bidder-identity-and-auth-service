@@ -1,4 +1,4 @@
-package models.dtos.request;
+package dtos.request;
 
 import models.ContactType;
 

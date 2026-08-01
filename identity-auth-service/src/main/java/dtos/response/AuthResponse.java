@@ -1,4 +1,4 @@
-package models.dtos.response;
+package dtos.response;
 
 import java.util.UUID;
 

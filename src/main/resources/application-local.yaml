@@ -13,7 +13,7 @@ spring:
   jpa:
     show-sql: false
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
       naming:
         implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyLegacyJpaImpl
         physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
@@ -45,6 +45,10 @@ cookies:
 auth:
   registration-pwd:
     allow-simple: true
+
+token-expiry:
+    password-reset: 300 # 5mins
+    account-verification: 900 # 15mins
 
 client:
   url: http://localhost:3000

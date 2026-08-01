@@ -56,6 +56,7 @@ dependencies {
 	testImplementation 'org.springframework.kafka:spring-kafka-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
 
 	// Security
 	implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -65,7 +66,8 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-impl:0.11.5'
 	implementation 'io.jsonwebtoken:jjwt-jackson:0.11.5'
 
-	implementation 'com.bidder:notifications-model:2.1.1'
+	implementation 'com.bidder:notifications-model:2.1.2'
+	implementation 'com.bidder:common-model:0.0.3-SNAPSHOT'
 }
 
 tasks.named('test') {

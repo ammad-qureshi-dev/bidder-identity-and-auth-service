@@ -3,15 +3,17 @@ bidder.app */
 package com.bidder.service.service;
 
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import com.bidder.service.models.entities.AppUser;
 import com.bidder.service.repository.AppUserRepository;
+import dtos.request.PreferredContactMethodRequest;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import models.ContactType;
-import models.dtos.request.PreferredContactMethodRequest;
-import models.entities.AppUser;
+import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
 import static com.bidder.service.utils.Constants.Messages.NOT_APPLICABLE;
@@ -89,5 +91,21 @@ public class AppUserService {
 
 		return Map.of(ContactType.EMAIL, appUser.getEmail() != null ? appUser.getEmail() : NOT_APPLICABLE,
 				ContactType.PHONE, appUser.getPhoneNumber() != null ? appUser.getPhoneNumber() : NOT_APPLICABLE);
+	}
+
+	public Pair<ContactType, String> getPreferredContactMethod(UUID userId) {
+		var appUser = getAppUserById(userId);
+		var preferred = appUser.getPreferredContactMethod();
+
+		if (ContactType.EMAIL.equals(preferred)) {
+			return Pair.of(ContactType.EMAIL, appUser.getEmail() != null ? appUser.getEmail() : NOT_APPLICABLE);
+		} else if (ContactType.PHONE.equals(preferred)) {
+			return Pair.of(ContactType.PHONE,
+					appUser.getPhoneNumber() != null ? appUser.getPhoneNumber() : NOT_APPLICABLE);
+		}
+
+		// ToDo: append client URL to redirect user to add contact method
+		throw new NoSuchElementException("No preferred contact method set. Please set a preferred contact method");
+
 	}
 }

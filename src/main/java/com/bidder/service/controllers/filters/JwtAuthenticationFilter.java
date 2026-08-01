@@ -38,7 +38,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
 			@NonNull FilterChain filterChain) throws ServletException, IOException {
-
 		String jwt = null;
 		if (request.getCookies() != null) {
 			jwt = Arrays.stream(request.getCookies()).filter(cookie -> TOKEN_COOKIE.equals(cookie.getName()))
@@ -81,6 +80,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		return path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui")
 				|| path.startsWith("/swagger-resources") || path.equals("/swagger-ui.html")
 				|| path.equals("/api/v1/auth/me") || path.equals("/api/v1/auth/login")
-				|| path.equals("/api/v1/auth/register");
+				|| path.equals("/api/v1/auth/register") || path.equals("/api/v1/identity-and-auth/app-user");
 	}
 }
