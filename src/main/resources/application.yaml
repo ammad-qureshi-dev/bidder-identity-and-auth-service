@@ -1,6 +1,6 @@
 spring:
   application:
-    name: communication-service
+    name: identity-auth-service
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/postgres?prepareThreshold=0
     username: ${DB_USER}
@@ -13,30 +13,32 @@ spring:
   jpa:
     show-sql: false
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
       naming:
         implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyLegacyJpaImpl
         physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  mail:
-    port: 587
-    host: 'smtp.gmail.com'
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PWD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-        debug: false
-        transport:
-          protocol: 'smtp'
+  output:
+    ansi:
+      enabled: ALWAYS
+  kafka:
+    bootstrap-servers: bidder-kafka-bidder.i.aivencloud.com:15237
+    consumer:
+      group-id: auth-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 server:
-  port: 8080
+  port: 8084
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
 jwt:
   secret: ${JWT_SECRET}
@@ -48,4 +50,11 @@ cookies:
 
 auth:
   registration-pwd:
-    allow-simple: true
+    allow-simple: false
+
+token-expiry:
+    password-reset: 300 # 5mins
+    account-verification: 900 # 15mins
+
+client:
+  url: http://localhost:3000

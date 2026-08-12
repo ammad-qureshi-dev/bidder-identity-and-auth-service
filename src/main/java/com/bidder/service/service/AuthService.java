@@ -6,9 +6,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.bidder.service.mappers.AppUserMapper;
-import com.bidder.service.models.AppUserPrincipal;
-import com.bidder.service.models.entities.AppUser;
-import com.bidder.service.models.entities.TokenType;
 import com.bidder.service.repository.AccessTokenRepository;
 import com.bidder.service.repository.AppUserRepository;
 import com.bidder.service.utils.HashingUtil;
@@ -19,8 +16,10 @@ import dtos.request.SendLinkMethodRequest;
 import dtos.response.AuthResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import models.AppUser;
 import models.ContactType;
 import models.TemplateName;
+import models.TokenType;
 import models.dtos.request.SendNotificationRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -58,8 +57,7 @@ public class AuthService {
 
 		appUserRepository.save(user);
 
-		var token = jwtService.generateToken(
-				AppUserPrincipal.builder().userId(user.getId()).username(getUsernameForSecurity(request)).build());
+		var token = jwtService.generateToken(user);
 
 		var notificationRequest = new SendNotificationRequest(user.getId(), TemplateName.WELCOME_REGISTRATION,
 				retrieveFirstContactTypeFromRegistration(request),
@@ -90,8 +88,7 @@ public class AuthService {
 			throw new BadCredentialsException(INVALID_CREDENTIALS);
 		}
 
-		var token = jwtService.generateToken(
-				AppUserPrincipal.builder().userId(appUser.getId()).username(getUsernameForSecurity(request)).build());
+		var token = jwtService.generateToken(appUser);
 
 		return new AuthResponse(token, appUser.getId());
 	}

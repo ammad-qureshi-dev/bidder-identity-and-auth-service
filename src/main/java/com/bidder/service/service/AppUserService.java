@@ -6,12 +6,12 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
-import com.bidder.service.models.entities.AppUser;
 import com.bidder.service.repository.AppUserRepository;
 import dtos.request.PreferredContactMethodRequest;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import models.AppUser;
 import models.ContactType;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;

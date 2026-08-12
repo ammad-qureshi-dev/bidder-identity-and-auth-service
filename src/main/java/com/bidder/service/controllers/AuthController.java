@@ -10,9 +10,11 @@ import com.bidder.service.service.PasswordService;
 import dtos.request.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import models.AppUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import response.ApiResponse;
 
@@ -20,7 +22,7 @@ import static com.bidder.service.utils.Constants.Controller.*;
 
 @Slf4j
 @RestController
-@RequestMapping(BASE_URI_V1 + "/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -52,9 +54,9 @@ public class AuthController {
 
 	@PostMapping("/password/reset/send-link")
 	public ResponseEntity<ApiResponse<Boolean>> sendPasswordResetLink(@RequestBody SendLinkMethodRequest request,
-			@RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
+			@AuthenticationPrincipal AppUser appUser) throws IllegalAccessException {
 
-		passwordService.sendPasswordResetLinkV2(appUserId, request.contactType());
+		passwordService.sendPasswordResetLinkV2(appUser.getId(), request.contactType());
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
 	}
 
@@ -67,8 +69,8 @@ public class AuthController {
 
 	@PostMapping("/account-verification/send-link")
 	public ResponseEntity<ApiResponse<Boolean>> sendAccountVerificationLink(@RequestBody SendLinkMethodRequest request,
-			@RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
-		authService.sendAccountVerificationLink(request, appUserId);
+			@AuthenticationPrincipal AppUser appUser) throws IllegalAccessException {
+		authService.sendAccountVerificationLink(request, appUser.getId());
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
 	}
 

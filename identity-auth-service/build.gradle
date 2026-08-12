@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.bidder'
-version = '0.0.2'
+version = '0.0.3'
 
 java {
     toolchain {
@@ -80,6 +80,8 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
 
     implementation 'com.bidder:notifications-model:2.1.1'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
 }
 
 test {

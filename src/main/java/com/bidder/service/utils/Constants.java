@@ -9,7 +9,8 @@ public class Constants {
 
 	@AllArgsConstructor
 	public static class Controller {
-		public static final String BASE_URI_V1 = "/api/v1/identity-and-auth";
+		public static final String BASE_URI = "/api/identity-and-auth";
+		public static final String AUTH_BASE_URI = BASE_URI + "/v1/auth";
 	}
 
 	public static class Database {

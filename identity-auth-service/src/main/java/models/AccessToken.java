@@ -1,11 +1,10 @@
 /* (C) 2026 
 bidder.app */
-package com.bidder.service.models.entities;
+package models;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import com.bidder.service.utils.Constants;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -16,7 +15,7 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(schema = Constants.Database.SCHEMA, name = "access_token")
+@Table(schema = "identity_and_auth_service", name = "access_token")
 @EqualsAndHashCode(callSuper = true)
 public class AccessToken extends BaseEntity {
 	@Id

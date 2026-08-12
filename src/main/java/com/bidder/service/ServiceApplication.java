@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 
 @SpringBootApplication
-@EntityScan(basePackages = {"com.bidder.service", "models.entities"})
+@EntityScan(basePackages = {"com.bidder.service", "models"})
 public class ServiceApplication {
 
 	public static void main(String[] args) {

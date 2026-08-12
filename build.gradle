@@ -28,12 +28,19 @@ spotless {
 repositories {
 	mavenCentral()
 	mavenLocal()
-	maven {
-		name = 'GitHubPackages'
-		url = uri('https://maven.pkg.github.com/ammad-qureshi-dev/bidder-notification-service')
-		credentials {
-			username = System.getenv('BIDDER_USERNAME')
-			password = System.getenv('BIDDER_GITHUB_TOKEN')
+	def ghPackageRepos = [
+			'https://maven.pkg.github.com/ammad-qureshi-dev/bidder-notification-service',
+			'https://maven.pkg.github.com/ammad-qureshi-dev/catalog-model-service',
+			'https://maven.pkg.github.com/ammad-qureshi-dev/bidder-common'
+	]
+
+	ghPackageRepos.each { repoUrl ->
+		maven {
+			url = uri(repoUrl)
+			credentials {
+				username = System.getenv('BIDDER_USERNAME')
+				password = System.getenv('BIDDER_GITHUB_TOKEN')
+			}
 		}
 	}
 }
@@ -41,6 +48,7 @@ repositories {
 dependencies {
 	implementation project(':identity-auth-service')
 
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
@@ -68,6 +76,7 @@ dependencies {
 
 	implementation 'com.bidder:notifications-model:2.1.2'
 	implementation 'com.bidder:common-model:0.0.3-SNAPSHOT'
+	implementation 'com.bidder:identity-auth-service:0.0.3'
 }
 
 tasks.named('test') {

@@ -10,12 +10,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 
-import com.bidder.service.models.AppUserPrincipal;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import models.AppUser;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -60,9 +60,9 @@ public class JwtService {
 		return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
 	}
 
-	public String generateToken(AppUserPrincipal appUser) {
+	public String generateToken(AppUser appUser) {
 		var extraClaims = new HashMap<String, Object>();
-		extraClaims.put("id", appUser.getUserId());
+		extraClaims.put("id", appUser.getId());
 		return generateToken(extraClaims, appUser);
 	}
 
