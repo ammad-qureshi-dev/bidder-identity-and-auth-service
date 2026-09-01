@@ -54,9 +54,9 @@ public class AuthController {
 
 	@PostMapping("/password/reset/send-link")
 	public ResponseEntity<ApiResponse<Boolean>> sendPasswordResetLink(@RequestBody SendLinkMethodRequest request,
-			@AuthenticationPrincipal AppUser appUser) throws IllegalAccessException {
+																	  @RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
 
-		passwordService.sendPasswordResetLinkV2(appUser.getId(), request.contactType());
+		passwordService.sendPasswordResetLinkV2(appUserId, request.contactType());
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
 	}
 
@@ -69,8 +69,8 @@ public class AuthController {
 
 	@PostMapping("/account-verification/send-link")
 	public ResponseEntity<ApiResponse<Boolean>> sendAccountVerificationLink(@RequestBody SendLinkMethodRequest request,
-			@AuthenticationPrincipal AppUser appUser) throws IllegalAccessException {
-		authService.sendAccountVerificationLink(request, appUser.getId());
+			@RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
+		authService.sendAccountVerificationLink(request, appUserId);
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
 	}
 
@@ -79,5 +79,11 @@ public class AuthController {
 			throws IllegalAccessException {
 		authService.verifyAccount(request.token());
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
+	}
+
+	@GetMapping("/account-verification/is-verified")
+	public ResponseEntity<ApiResponse<Boolean>> isVerified(@RequestHeader("X-App-User-Id") UUID appUserId) {
+		var result = authService.isAccountVerified(appUserId);
+		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(result).build(), HttpStatus.OK);
 	}
 }

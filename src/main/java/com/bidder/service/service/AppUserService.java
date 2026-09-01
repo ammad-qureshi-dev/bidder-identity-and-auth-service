@@ -2,18 +2,18 @@
 bidder.app */
 package com.bidder.service.service;
 
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.UUID;
+import java.util.*;
 
+import com.bidder.service.mappers.AppUserMapper;
 import com.bidder.service.repository.AppUserRepository;
 import dtos.request.PreferredContactMethodRequest;
+import dtos.response.AppUserDto;
+import dtos.response.PreferredContactMethod;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import models.AppUser;
 import models.ContactType;
-import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
 import static com.bidder.service.utils.Constants.Messages.NOT_APPLICABLE;
@@ -93,19 +93,43 @@ public class AppUserService {
 				ContactType.PHONE, appUser.getPhoneNumber() != null ? appUser.getPhoneNumber() : NOT_APPLICABLE);
 	}
 
-	public Pair<ContactType, String> getPreferredContactMethod(UUID userId) {
+	public PreferredContactMethod getPreferredContactMethod(UUID userId) {
 		var appUser = getAppUserById(userId);
+		return getPreferredContactMethodHelper(appUser);
+
+//		throw new NoSuchElementException("No preferred contact method set. Please set a preferred contact method");
+	}
+
+	public List<PreferredContactMethod> internalGetPreferredContactMethods(List<UUID> appUserIds) {
+		if (appUserIds == null || appUserIds.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		var contactMethods = new ArrayList<PreferredContactMethod>();
+
+		var appUsers = appUserRepository.findAllById(appUserIds);
+		for (var appUser :appUsers) {
+			contactMethods.add(getPreferredContactMethodHelper(appUser));
+		}
+
+		return contactMethods;
+	}
+
+	public AppUserDto getAppUser(UUID appUserId) {
+		var appUser = getAppUserById(appUserId);
+		return AppUserMapper.entityToRequest(appUser);
+	}
+
+	private static PreferredContactMethod getPreferredContactMethodHelper(AppUser appUser) {
 		var preferred = appUser.getPreferredContactMethod();
 
 		if (ContactType.EMAIL.equals(preferred)) {
-			return Pair.of(ContactType.EMAIL, appUser.getEmail() != null ? appUser.getEmail() : NOT_APPLICABLE);
+			return new PreferredContactMethod(ContactType.EMAIL, appUser.getEmail() != null ? appUser.getEmail() : NOT_APPLICABLE, appUser.getId());
 		} else if (ContactType.PHONE.equals(preferred)) {
-			return Pair.of(ContactType.PHONE,
-					appUser.getPhoneNumber() != null ? appUser.getPhoneNumber() : NOT_APPLICABLE);
+			return new PreferredContactMethod(ContactType.PHONE,
+					appUser.getPhoneNumber() != null ? appUser.getPhoneNumber() : NOT_APPLICABLE, appUser.getId());
 		}
 
-		// ToDo: append client URL to redirect user to add contact method
-		throw new NoSuchElementException("No preferred contact method set. Please set a preferred contact method");
-
+		return new PreferredContactMethod(null, null, appUser.getId());
 	}
 }

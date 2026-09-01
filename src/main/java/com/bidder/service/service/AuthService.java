@@ -102,6 +102,11 @@ public class AuthService {
 		}
 
 		var appUser = appUserResult.get();
+
+		if (appUser.isVerifiedAccount()) {
+			return;
+		}
+
 		Map<ContactType, String> recipientConfig;
 
 		if (ContactType.EMAIL.equals(request.contactType())) {
@@ -146,11 +151,27 @@ public class AuthService {
 		}
 
 		var appUser = storedToken.getAppUser();
+
+		// Prevent unnecessary database transaction if already verified
+		if (appUser.isVerifiedAccount()) {
+			return;
+		}
+
 		appUser.setVerifiedAccount(true);
 		appUserRepository.save(appUser);
 
 		accessTokenRepository.delete(storedToken);
 		log.info("Account verified for app-user-id = {}", appUser.getId());
+	}
+
+	public boolean isAccountVerified(UUID appUserId) {
+		var appUser = appUserRepository.findById(appUserId);
+
+		if (appUser.isEmpty()) {
+			throw new RuntimeException("User not found");
+		}
+
+		return appUser.get().isVerifiedAccount();
 	}
 
 	private void validateAppUserRequest(RegisterAppUserRequest request) {

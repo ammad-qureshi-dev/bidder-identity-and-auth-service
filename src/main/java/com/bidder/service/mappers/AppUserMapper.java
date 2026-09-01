@@ -5,7 +5,9 @@ package com.bidder.service.mappers;
 import com.bidder.service.utils.HashingUtil;
 import dtos.request.RegisterAppUserRequest;
 import dtos.response.AppUserDto;
+import dtos.response.PreferredContactMethod;
 import models.AppUser;
+import models.ContactType;
 
 public class AppUserMapper {
 	public static final AppUser requestToEntity(RegisterAppUserRequest request) {
@@ -19,6 +21,17 @@ public class AppUserMapper {
 			return null;
 		}
 
-		return new AppUserDto(entity.getId(), entity.getFullName(), entity.getPhoneNumber(), entity.getEmail());
+		PreferredContactMethod contact;
+		var savedContactMethod = entity.getPreferredContactMethod();
+
+		if (ContactType.PHONE.equals(savedContactMethod)) {
+			contact = new PreferredContactMethod(savedContactMethod, entity.getPhoneNumber(), entity.getId());
+		} else if (ContactType.EMAIL.equals(savedContactMethod)) {
+			contact = new PreferredContactMethod(savedContactMethod, entity.getEmail(), entity.getId());
+		} else {
+			contact = new PreferredContactMethod(null, null, entity.getId());
+		}
+
+		return new AppUserDto(entity.getId(), entity.getFullName(), contact);
 	}
 }
