@@ -2,7 +2,7 @@
 bidder.app */
 package com.bidder.service.service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -177,7 +177,7 @@ public class PasswordService {
 
 		var token = HashingUtil.generateToken();
 		var passwordResetToken = AccessToken.builder().appUser(appUser).token(HashingUtil.generateHash(token))
-				.expiresAt(LocalDateTime.now().plusSeconds(expirySeconds)).tokenType(tokenType).build();
+				.expiresAt(Instant.now().plusSeconds(expirySeconds)).tokenType(tokenType).build();
 		accessTokenRepository.save(passwordResetToken);
 		return Optional.of(token);
 	}

@@ -2,7 +2,7 @@
 bidder.app */
 package models;
 
-import java.time.LocalDateTime;
+
 
 import jakarta.persistence.MappedSuperclass;
 import lombok.AllArgsConstructor;
@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
+
 @Data
 @AllArgsConstructor
 @RequiredArgsConstructor
@@ -18,8 +20,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 public class BaseEntity {
 
 	@CreationTimestamp
-	private LocalDateTime createdAt;
+	private Instant createdAt;
 
 	@UpdateTimestamp
-	private LocalDateTime updatedAt;
+	private Instant updatedAt;
 }

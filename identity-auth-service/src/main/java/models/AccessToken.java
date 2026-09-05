@@ -2,7 +2,8 @@
 bidder.app */
 package models;
 
-import java.time.LocalDateTime;
+
+import java.time.Instant;
 import java.util.UUID;
 
 import jakarta.persistence.*;
@@ -27,14 +28,14 @@ public class AccessToken extends BaseEntity {
 
 	@NotNull private String token;
 
-	@NotNull private LocalDateTime expiresAt;
+	@NotNull private Instant expiresAt;
 
-	private LocalDateTime usedAt;
+	private Instant usedAt;
 
 	@Enumerated(EnumType.STRING)
 	private TokenType tokenType;
 
 	public boolean isExpired() {
-		return LocalDateTime.now().isAfter(this.getExpiresAt());
+		return Instant.now().isAfter(this.getExpiresAt());
 	}
 }

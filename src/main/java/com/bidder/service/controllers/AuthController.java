@@ -10,11 +10,9 @@ import com.bidder.service.service.PasswordService;
 import dtos.request.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import models.AppUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import response.ApiResponse;
 
@@ -54,7 +52,7 @@ public class AuthController {
 
 	@PostMapping("/password/reset/send-link")
 	public ResponseEntity<ApiResponse<Boolean>> sendPasswordResetLink(@RequestBody SendLinkMethodRequest request,
-																	  @RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
+			@RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
 
 		passwordService.sendPasswordResetLinkV2(appUserId, request.contactType());
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);

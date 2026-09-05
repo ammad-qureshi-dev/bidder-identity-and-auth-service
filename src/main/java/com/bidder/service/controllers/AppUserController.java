@@ -48,7 +48,8 @@ public class AppUserController {
 				.data(appUserService.getPreferredContactMethod(appUserId)).build());
 	}
 
-	// ToDo: for any internal requests, add a token and validate token. Internal endpoints can leak internal PII data
+	// ToDo: for any internal requests, add a token and validate token. Internal
+	// endpoints can leak internal PII data
 	@GetMapping("/internal/contacts/preferred-contact-methods")
 	public ResponseEntity<ApiResponse<List<PreferredContactMethod>>> internalGetPreferredContactMethod(
 			@RequestParam(required = true) List<UUID> appUserIds) {
@@ -59,7 +60,6 @@ public class AppUserController {
 	@GetMapping("/{appUserId}")
 	public ResponseEntity<ApiResponse<AppUserDto>> getAppUser(@PathVariable UUID appUserId) {
 		var user = appUserService.getAppUser(appUserId);
-		return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<AppUserDto>builder()
-				.data(user).build());
+		return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.<AppUserDto>builder().data(user).build());
 	}
 }

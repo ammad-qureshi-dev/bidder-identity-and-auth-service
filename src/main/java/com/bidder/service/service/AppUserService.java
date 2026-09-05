@@ -97,7 +97,8 @@ public class AppUserService {
 		var appUser = getAppUserById(userId);
 		return getPreferredContactMethodHelper(appUser);
 
-//		throw new NoSuchElementException("No preferred contact method set. Please set a preferred contact method");
+		// throw new NoSuchElementException("No preferred contact method set. Please set
+		// a preferred contact method");
 	}
 
 	public List<PreferredContactMethod> internalGetPreferredContactMethods(List<UUID> appUserIds) {
@@ -108,7 +109,7 @@ public class AppUserService {
 		var contactMethods = new ArrayList<PreferredContactMethod>();
 
 		var appUsers = appUserRepository.findAllById(appUserIds);
-		for (var appUser :appUsers) {
+		for (var appUser : appUsers) {
 			contactMethods.add(getPreferredContactMethodHelper(appUser));
 		}
 
@@ -124,7 +125,8 @@ public class AppUserService {
 		var preferred = appUser.getPreferredContactMethod();
 
 		if (ContactType.EMAIL.equals(preferred)) {
-			return new PreferredContactMethod(ContactType.EMAIL, appUser.getEmail() != null ? appUser.getEmail() : NOT_APPLICABLE, appUser.getId());
+			return new PreferredContactMethod(ContactType.EMAIL,
+					appUser.getEmail() != null ? appUser.getEmail() : NOT_APPLICABLE, appUser.getId());
 		} else if (ContactType.PHONE.equals(preferred)) {
 			return new PreferredContactMethod(ContactType.PHONE,
 					appUser.getPhoneNumber() != null ? appUser.getPhoneNumber() : NOT_APPLICABLE, appUser.getId());
