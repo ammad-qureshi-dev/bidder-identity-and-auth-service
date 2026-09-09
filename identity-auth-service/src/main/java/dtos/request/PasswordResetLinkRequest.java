@@ -1,8 +1,8 @@
 package dtos.request;
 
-import models.ContactType;
+import jakarta.validation.constraints.NotNull;
 
 public record PasswordResetLinkRequest(
-		ContactType contactType
+        @NotNull String contact
 ) {
 }

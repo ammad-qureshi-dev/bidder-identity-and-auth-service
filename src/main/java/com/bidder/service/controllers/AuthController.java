@@ -16,8 +16,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
 import response.ApiResponse;
 
-import static com.bidder.service.utils.Constants.Controller.*;
-
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -51,10 +49,10 @@ public class AuthController {
 	}
 
 	@PostMapping("/password/reset/send-link")
-	public ResponseEntity<ApiResponse<Boolean>> sendPasswordResetLink(@RequestBody SendLinkMethodRequest request,
-			@RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
+	public ResponseEntity<ApiResponse<Boolean>> sendPasswordResetLink(@RequestBody PasswordResetLinkRequest request)
+			throws IllegalStateException {
 
-		passwordService.sendPasswordResetLinkV2(appUserId, request.contactType());
+		passwordService.sendPasswordResetLink(request);
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
 	}
 

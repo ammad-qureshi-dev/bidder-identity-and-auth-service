@@ -5,13 +5,13 @@ package com.bidder.service.service;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.regex.Pattern;
 
 import com.bidder.service.repository.AccessTokenRepository;
 import com.bidder.service.repository.AppUserRepository;
 import com.bidder.service.utils.HashingUtil;
 import config.EventTopics;
+import dtos.request.PasswordResetLinkRequest;
 import dtos.request.TokenRequest;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -48,68 +48,68 @@ public class PasswordService {
 	private static final String PASSWORD_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$";
 	private static final Pattern PATTERN = Pattern.compile(PASSWORD_REGEX);
 
+	private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+	private static final Pattern PHONE_PATTERN = Pattern.compile("^\\+?[1-9]\\d{7,14}$");
+
 	private final AppUserService appUserService;
 	private final AppUserRepository appUserRepository;
 	private final AccessTokenRepository accessTokenRepository;
 	private final KafkaTemplate<String, Object> kafkaTemplate;
 
-	public void sendPasswordResetLinkV2(UUID appUserId, ContactType contactType) {
-		// ToDo: find a better way lol
-		Map<ContactType, String> recipientConfig;
+	public void sendPasswordResetLink(PasswordResetLinkRequest request) {
+		var contact = request.contact();
+		var contactType = determineContactType(contact);
 
-		var appUser = appUserRepository.findById(appUserId);
-
-		if (appUser.isEmpty()) {
-			log.error("Could not generate a Password Reset Link, app-user with id = {} not found", appUserId);
-			return;
-		}
-
-		if (ContactType.PHONE.equals(contactType)) {
-			recipientConfig = Map.of(contactType, appUser.get().getPhoneNumber());
-		} else if (ContactType.EMAIL.equals(contactType)) {
-			recipientConfig = Map.of(contactType, appUser.get().getEmail());
+		AppUser appUser;
+		if (ContactType.EMAIL.equals(contactType)) {
+			appUser = appUserRepository.findByEmail(contact).orElseThrow();
 		} else {
-			throw new RuntimeException("Contact Type not implemented");
+			appUser = appUserRepository.findByPhoneNumber(contact).orElseThrow();
 		}
 
-		var token = generateAndSaveToken(appUser.get(), TokenType.PASSWORD_RESET, passwordResetExpiry);
+		Map<ContactType, String> recipientConfig;
+		if (ContactType.PHONE.equals(contactType)) {
+			recipientConfig = Map.of(contactType, appUser.getPhoneNumber());
+		} else {
+			recipientConfig = Map.of(contactType, appUser.getEmail());
+		}
+
+		var token = generateAndSaveToken(appUser, TokenType.PASSWORD_RESET, passwordResetExpiry);
 
 		if (token.isEmpty()) {
-			log.info("Password Reset Token already exists for app-user with id = {}", appUserId);
+			log.info("Password Reset Token already exists for app-user with id = {}", appUser.getId());
 			return;
 		}
 
 		var resetUrl = clientUrl + "/password/reset?token=" + token.get();
 		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
-				new SendNotificationRequest(appUserId, TemplateName.PASSWORD_RESET_LINK_SENT, recipientConfig,
-						Map.of("fullName", appUser.get().getFullName(), "expiryMinutes", passwordResetExpiry / 60,
-								"resetUrl", resetUrl)));
-	}
+				new SendNotificationRequest(appUser.getId(), TemplateName.PASSWORD_RESET_LINK_SENT, recipientConfig,
+						Map.of("fullName", appUser.getFullName(), "expiryMinutes", passwordResetExpiry / 60, "resetUrl",
+								resetUrl)));
 
-	public void sendPasswordResetLink(TokenRequest request) {
-
-		if (ContactType.EMAIL.equals(request.contactMethod())) {
-			sendPasswordLinkByEmail(request.email());
-		} else if (ContactType.PHONE.equals(request.contactMethod())) {
-			throw new RuntimeException("Password Reset by mobile not implemented");
-		} else {
-			throw new RuntimeException("Method selected does not exist");
-		}
 	}
 
 	public void resetPassword(String token, TokenRequest request) throws IllegalAccessException {
 		var hashedToken = HashingUtil.generateHash(token);
-		AppUser appUser = getAppUserByContactMethod(request);
+		var passwordResetTokenResult = accessTokenRepository.findByToken(hashedToken, TokenType.PASSWORD_RESET);
 
-		var passwordResetToken = accessTokenRepository.findByToken(hashedToken, TokenType.PASSWORD_RESET);
-		validateClientToken(passwordResetToken, token, TokenType.PASSWORD_RESET);
+		if (passwordResetTokenResult.isEmpty()) {
+			log.error("Access Token not found for incoming token: {}", token);
+			throw new IllegalAccessException("Invalid Access");
+		}
+
+		var resetToken = passwordResetTokenResult.get();
+
+		var appUser = resetToken.getAppUser();
+
+		validateClientToken(resetToken, token, TokenType.PASSWORD_RESET);
 
 		var hashedPassword = HashingUtil.generateHash(request.password());
 		appUser.setPassword(hashedPassword);
 		appUserRepository.save(appUser);
 		log.info("Password successfully reset for app-user-id = {}", appUser.getId());
 
-		passwordResetToken.ifPresent(accessTokenRepository::delete);
+		accessTokenRepository.delete(resetToken);
 
 		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
 				new SendNotificationRequest(appUser.getId(), TemplateName.PASSWORD_UPDATED,
@@ -192,14 +192,8 @@ public class PasswordService {
 		}
 	}
 
-	private void validateClientToken(Optional<AccessToken> storedToken, String clientToken, TokenType tokenType)
+	private void validateClientToken(AccessToken token, String clientToken, TokenType tokenType)
 			throws IllegalAccessException {
-		if (storedToken.isEmpty()) {
-			log.error("Token not found for incoming token: {}", clientToken);
-			throw new IllegalAccessException("Invalid Access");
-		}
-
-		var token = storedToken.get();
 		if (token.isExpired()) {
 			log.error("Stored token expired for incoming token: {}", clientToken);
 			throw new IllegalAccessException("Link Expired");
@@ -211,4 +205,26 @@ public class PasswordService {
 			throw new IllegalAccessException("Invalid Token");
 		}
 	}
+
+	private static ContactType determineContactType(String contact) {
+		if (contact == null || contact.isBlank()) {
+			throw new IllegalStateException("No contact type provided");
+		}
+
+		String trimmed = contact.trim();
+
+		if (EMAIL_PATTERN.matcher(trimmed).matches()) {
+			return ContactType.EMAIL;
+		}
+
+		// Normalise common phone formatting (spaces, dashes, dots, parentheses) before
+		// matching
+		String normalisedPhone = trimmed.replaceAll("[\\s().-]", "");
+		if (PHONE_PATTERN.matcher(normalisedPhone).matches()) {
+			return ContactType.PHONE;
+		}
+
+		throw new IllegalStateException("Contact format not applicable");
+	}
+
 }
