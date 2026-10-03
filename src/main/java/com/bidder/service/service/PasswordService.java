@@ -21,7 +21,7 @@ import models.AppUser;
 import models.ContactType;
 import models.TemplateName;
 import models.TokenType;
-import models.dtos.request.SendNotificationRequest;
+import models.dtos.request.NotifyRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -83,7 +83,7 @@ public class PasswordService {
 
 		var resetUrl = clientUrl + "/password/reset?token=" + token.get();
 		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
-				new SendNotificationRequest(appUser.getId(), TemplateName.PASSWORD_RESET_LINK_SENT, recipientConfig,
+				new NotifyRequest(appUser.getId(), TemplateName.PASSWORD_RESET_LINK_SENT, recipientConfig,
 						Map.of("fullName", appUser.getFullName(), "expiryMinutes", passwordResetExpiry / 60, "resetUrl",
 								resetUrl)));
 
@@ -112,7 +112,7 @@ public class PasswordService {
 		accessTokenRepository.delete(resetToken);
 
 		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
-				new SendNotificationRequest(appUser.getId(), TemplateName.PASSWORD_UPDATED,
+				new NotifyRequest(appUser.getId(), TemplateName.PASSWORD_UPDATED,
 						appUserService.getPreferredContactType(appUser), Map.of("fullName", appUser.getFullName())));
 	}
 

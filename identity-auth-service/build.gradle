@@ -6,8 +6,7 @@ plugins {
 }
 
 group = 'com.bidder'
-version = '0.0.5'
-description = 'includes updating AppUserDto'
+version = '0.0.6'
 
 java {
     toolchain {

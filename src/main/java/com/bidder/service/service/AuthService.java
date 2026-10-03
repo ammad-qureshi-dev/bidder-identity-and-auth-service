@@ -20,7 +20,7 @@ import models.AppUser;
 import models.ContactType;
 import models.TemplateName;
 import models.TokenType;
-import models.dtos.request.SendNotificationRequest;
+import models.dtos.request.NotifyRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -59,7 +59,7 @@ public class AuthService {
 
 		var token = jwtService.generateToken(user);
 
-		var notificationRequest = new SendNotificationRequest(user.getId(), TemplateName.WELCOME_REGISTRATION,
+		var notificationRequest = new NotifyRequest(user.getId(), TemplateName.WELCOME_REGISTRATION,
 				retrieveFirstContactTypeFromRegistration(request),
 				Map.of("fullName", user.getFullName(), "appUrl", clientUrl));
 		kafkaTemplate.send("notification", notificationRequest);
@@ -112,7 +112,7 @@ public class AuthService {
 		if (ContactType.EMAIL.equals(request.contactType())) {
 			recipientConfig = Map.of(ContactType.EMAIL, appUser.getEmail());
 		} else if (ContactType.PHONE.equals(request.contactType())) {
-			recipientConfig = Map.of(ContactType.PHONE, appUser.getEmail());
+			recipientConfig = Map.of(ContactType.PHONE, appUser.getPhoneNumber());
 		} else {
 			throw new IllegalStateException("Contact type not supported");
 		}
@@ -127,11 +127,11 @@ public class AuthService {
 		var verificationUrl = clientUrl + "/verify-account?token=" + token.get();
 
 		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
-				new SendNotificationRequest(appUser.getId(), TemplateName.ACCOUNT_VERIFICATION, recipientConfig,
+				new NotifyRequest(appUser.getId(), TemplateName.ACCOUNT_VERIFICATION, recipientConfig,
 						Map.of("fullName", appUser.getFullName(), "verificationUrl", verificationUrl)));
 	}
 
-	@Transactional
+	@Transactional(rollbackFor = java.lang.Exception.class)
 	public void verifyAccount(String token) throws IllegalAccessException {
 		if (token == null) {
 			throw new IllegalAccessException("No account verification request found");
@@ -189,15 +189,6 @@ public class AuthService {
 
 		if (request.fullName() == null) {
 			throw new IllegalStateException("Name required");
-		}
-	}
-
-	private static String getUsernameForSecurity(Object request) {
-		if (request instanceof RegisterAppUserRequest req) {
-			return req.email() != null ? req.email() : req.phoneNumber();
-		} else {
-			var req = (LoginRequest) request;
-			return req.email() != null ? req.email() : req.phoneNumber();
 		}
 	}
 
