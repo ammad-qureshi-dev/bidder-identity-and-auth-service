@@ -18,6 +18,13 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+	// ToDo: [SECURITY CONCERN] -- anyRequest().permitAll() with no authentication
+	// filter means every X-App-User-Id header consumed by controllers (e.g.
+	// AppUserController, AuthController) is fully client-controlled and unverified.
+	// This is a systemic authentication bypass: any caller can impersonate any user
+	// by setting that header to an arbitrary UUID. Needs a filter that validates the
+	// caller's JWT/session and derives the identity server-side instead of trusting
+	// the header, plus an authorizeHttpRequests policy that isn't a blanket permitAll.
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) {
 		http.csrf(csrf -> csrf.disable()).authorizeHttpRequests(auth -> auth.anyRequest().permitAll())

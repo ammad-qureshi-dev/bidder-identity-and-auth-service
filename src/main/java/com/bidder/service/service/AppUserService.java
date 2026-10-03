@@ -132,6 +132,6 @@ public class AppUserService {
 					appUser.getPhoneNumber() != null ? appUser.getPhoneNumber() : NOT_APPLICABLE, appUser.getId());
 		}
 
-		return new PreferredContactMethod(null, null, appUser.getId());
+		return new PreferredContactMethod(ContactType.APP, "", appUser.getId());
 	}
 }
