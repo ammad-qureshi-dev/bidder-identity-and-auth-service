@@ -10,9 +10,14 @@ import models.AppUser;
 import models.ContactType;
 
 public class AppUserMapper {
-	public static final AppUser requestToEntity(RegisterAppUserRequest request) {
+	public static AppUser requestToEntity(RegisterAppUserRequest request) {
+		var preferredContact = request.email() != null
+				? ContactType.EMAIL
+				: (request.phoneNumber() != null ? ContactType.PHONE : null);
+
 		return AppUser.builder().email(request.email()).fullName(request.fullName())
-				.password(HashingUtil.generateHash(request.password())).phoneNumber(request.phoneNumber()).build();
+				.preferredContactMethod(preferredContact).password(HashingUtil.generateHash(request.password()))
+				.phoneNumber(request.phoneNumber()).build();
 	}
 
 	public static AppUserDto entityToRequest(AppUser entity) {

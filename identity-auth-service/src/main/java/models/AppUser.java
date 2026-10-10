@@ -10,6 +10,8 @@ import jakarta.annotation.Nullable;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -37,7 +39,9 @@ public class AppUser extends BaseEntity implements UserDetails {
 	// ToDo: to be broken down
 	private String phoneNumber;
 
-	private boolean verifiedAccount;
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "verification_data")
+	private AccountVerification verificationData;
 
 	@Nullable @Enumerated(EnumType.STRING)
 	private ContactType preferredContactMethod;
@@ -77,6 +81,11 @@ public class AppUser extends BaseEntity implements UserDetails {
 
 	@Override
 	public boolean isEnabled() {
-		return verifiedAccount;
+		var data = getVerificationData();
+		if (data == null) {
+			return false;
+		}
+
+		return data.isVerified();
 	}
 }

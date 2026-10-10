@@ -2,6 +2,7 @@
 bidder.app */
 package com.bidder.service.service;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -12,14 +13,10 @@ import com.bidder.service.utils.HashingUtil;
 import config.EventTopics;
 import dtos.request.LoginRequest;
 import dtos.request.RegisterAppUserRequest;
-import dtos.request.SendLinkMethodRequest;
 import dtos.response.AuthResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import models.AppUser;
-import models.ContactType;
-import models.TemplateName;
-import models.TokenType;
+import models.*;
 import models.dtos.request.NotifyRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -49,18 +46,24 @@ public class AuthService {
 	@Value("${token-expiry.account-verification}")
 	private int accountVerificationExpiry;
 
+	// 30 days
+	private static long ACCOUNT_VERIFICATION_EXPIRATION_LENGTH_SECONDS = 2592000;
+
 	@Transactional
 	public AuthResponse appUserRegistration(RegisterAppUserRequest request) {
 		validateAppUserRequest(request);
 
 		var user = AppUserMapper.requestToEntity(request);
+		var now = Instant.now();
+		user.setVerificationData(AccountVerification.builder().isVerified(false).lastRemindedOn(now)
+				.expirationDate(now.plusSeconds(ACCOUNT_VERIFICATION_EXPIRATION_LENGTH_SECONDS)).status(null).build());
 
 		appUserRepository.save(user);
 
 		var token = jwtService.generateToken(user);
+		var recipientConfig = retrieveFirstContactTypeFromRegistration(request);
 
-		var notificationRequest = new NotifyRequest(user.getId(), TemplateName.WELCOME_REGISTRATION,
-				retrieveFirstContactTypeFromRegistration(request),
+		var notificationRequest = new NotifyRequest(user.getId(), TemplateName.WELCOME_REGISTRATION, recipientConfig,
 				Map.of("fullName", user.getFullName(), "appUrl", clientUrl));
 		kafkaTemplate.send("notification", notificationRequest);
 
@@ -93,28 +96,25 @@ public class AuthService {
 		return new AuthResponse(token, appUser.getId());
 	}
 
-	public void sendAccountVerificationLink(SendLinkMethodRequest request, UUID appUserId) {
-		var appUserResult = appUserRepository.findById(appUserId);
+	/**
+	 * Sends an account verification link if and only if the given {@link AppUser}
+	 * is not yet verified. Delegates to
+	 * {@link PasswordService#generateAndSaveToken} to generate and persist the
+	 * verification token.
+	 */
+	public void sendAccountVerificationLink(UUID appUserId) {
+		var appUser = appUserService.getAppUserById(appUserId);
+		var verificationData = appUser.getVerificationData();
 
-		if (appUserResult.isEmpty()) {
-			log.info("No app-user with id = {} exists", appUserId);
+		if (verificationData.isVerified()) {
+			log.info("app-user-id = {} is already verified", appUser.getId());
 			return;
 		}
 
-		var appUser = appUserResult.get();
-
-		if (appUser.isVerifiedAccount()) {
-			return;
-		}
-
-		Map<ContactType, String> recipientConfig;
-
-		if (ContactType.EMAIL.equals(request.contactType())) {
-			recipientConfig = Map.of(ContactType.EMAIL, appUser.getEmail());
-		} else if (ContactType.PHONE.equals(request.contactType())) {
-			recipientConfig = Map.of(ContactType.PHONE, appUser.getPhoneNumber());
-		} else {
-			throw new IllegalStateException("Contact type not supported");
+		if (appUser.getPreferredContactMethod() == null
+				&& (appUser.getEmail() == null && appUser.getPhoneNumber() == null)) {
+			throw new IllegalStateException(
+					"Please set up an email or phone number to receive important and timely notifications");
 		}
 
 		var token = passwordService.generateAndSaveToken(appUser, TokenType.VERIFICATION, accountVerificationExpiry);
@@ -127,7 +127,7 @@ public class AuthService {
 		var verificationUrl = clientUrl + "/verify-account?token=" + token.get();
 
 		kafkaTemplate.send(EventTopics.NOTIFICATION.getTopic(),
-				new NotifyRequest(appUser.getId(), TemplateName.ACCOUNT_VERIFICATION, recipientConfig,
+				new NotifyRequest(appUser.getId(), TemplateName.ACCOUNT_VERIFICATION, null,
 						Map.of("fullName", appUser.getFullName(), "verificationUrl", verificationUrl)));
 	}
 
@@ -151,13 +151,15 @@ public class AuthService {
 		}
 
 		var appUser = storedToken.getAppUser();
+		var verificationData = appUser.getVerificationData();
 
 		// Prevent unnecessary database transaction if already verified
-		if (appUser.isVerifiedAccount()) {
+		if (verificationData.isVerified()) {
 			return;
 		}
 
-		appUser.setVerifiedAccount(true);
+		verificationData.setVerified(true);
+		verificationData.setVerifiedOn(Instant.now());
 		appUserRepository.save(appUser);
 
 		accessTokenRepository.delete(storedToken);
@@ -171,7 +173,12 @@ public class AuthService {
 			throw new RuntimeException("User not found");
 		}
 
-		return appUser.get().isVerifiedAccount();
+		var data = appUser.get().getVerificationData();
+		if (data == null) {
+			return false;
+		}
+
+		return data.isVerified();
 	}
 
 	private void validateAppUserRequest(RegisterAppUserRequest request) {
@@ -192,7 +199,7 @@ public class AuthService {
 		}
 	}
 
-	private static Map<ContactType, String> retrieveFirstContactTypeFromRegistration(RegisterAppUserRequest request) {
+	public static Map<ContactType, String> retrieveFirstContactTypeFromRegistration(RegisterAppUserRequest request) {
 		if (request == null) {
 			log.error("Registration request not found. Cannot derive contact type from registration request");
 			throw new RuntimeException("Request not found");
@@ -205,5 +212,21 @@ public class AuthService {
 		}
 
 		throw new RuntimeException("No contact type found from registration request");
+	}
+
+	@Transactional
+	public void updateVerificationStatus(AppUser appUser) {
+		var verificationData = appUser.getVerificationData();
+		var status = verificationData.getStatus();
+		if (status == null) {
+			verificationData.setStatus(AccountReminderStatus.INITIAL_REMINDER);
+		} else if (AccountReminderStatus.INITIAL_REMINDER.equals(status)) {
+			verificationData.setStatus(AccountReminderStatus.MID_REMINDER);
+		} else if (AccountReminderStatus.MID_REMINDER.equals(status)) {
+			verificationData.setStatus(AccountReminderStatus.FINAL_REMINDER);
+		}
+		verificationData.setLastRemindedOn(Instant.now());
+
+		appUserRepository.save(appUser);
 	}
 }

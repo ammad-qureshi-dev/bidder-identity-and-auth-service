@@ -36,10 +36,23 @@ public class AuthController {
 
 	@PostMapping("/register")
 	public ResponseEntity<ApiResponse<UUID>> register(@RequestBody RegisterAppUserRequest request) {
-		var response = authService.appUserRegistration(request);
-		var headers = jwtService.generateTokenCookieHeader(response.token());
-		var loginResponse = ApiResponse.<UUID>builder().data(response.userId()).build();
-		return new ResponseEntity<>(loginResponse, headers, HttpStatus.OK);
+		var appUser = authService.appUserRegistration(request);
+
+		try {
+			var recipientConfig = AuthService.retrieveFirstContactTypeFromRegistration(request);
+
+			if (recipientConfig.isEmpty()) {
+				log.error("No contact information provided, failed to send account verification link");
+			} else {
+				authService.sendAccountVerificationLink(appUser.userId());
+			}
+		} catch (Exception e) {
+			log.error("Failed to send account verification link for user {}: ", appUser.userId(), e);
+		}
+
+		var headers = jwtService.generateTokenCookieHeader(appUser.token());
+		var registerResponse = ApiResponse.<UUID>builder().data(appUser.userId()).build();
+		return new ResponseEntity<>(registerResponse, headers, HttpStatus.OK);
 	}
 
 	@PostMapping("/logout")
@@ -64,9 +77,9 @@ public class AuthController {
 	}
 
 	@PostMapping("/account-verification/send-link")
-	public ResponseEntity<ApiResponse<Boolean>> sendAccountVerificationLink(@RequestBody SendLinkMethodRequest request,
+	public ResponseEntity<ApiResponse<Boolean>> sendAccountVerificationLink(
 			@RequestHeader("X-App-User-Id") UUID appUserId) throws IllegalAccessException {
-		authService.sendAccountVerificationLink(request, appUserId);
+		authService.sendAccountVerificationLink(appUserId);
 		return new ResponseEntity<>(ApiResponse.<Boolean>builder().data(true).build(), HttpStatus.OK);
 	}
 

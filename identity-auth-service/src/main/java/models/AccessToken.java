@@ -23,7 +23,7 @@ public class AccessToken extends BaseEntity {
 	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 
-	@OneToOne
+	@ManyToOne
 	private AppUser appUser;
 
 	@NotNull private String token;
