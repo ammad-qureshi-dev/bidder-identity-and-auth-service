@@ -25,7 +25,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
 	@Query(value = """
 			select *
-			from app_user a
+			from identity_and_auth_service.app_user a
 			where (a.verification_data->>'isVerified')::boolean = false
 			  and a.verification_data->>'status' = :status
 			  and (a.verification_data->>'lastRemindedOn')::timestamptz < now() - (:day * interval '1 day')
@@ -35,7 +35,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
 	@Query(value = """
 			select *
-			from app_user a
+			from identity_and_auth_service.app_user a
 			where (a.verification_data->>'isVerified')::boolean = false
 			  and a.verification_data->>'status' = 'FINAL_REMINDER'
 			  and (a.verification_data->>'expirationDate')::timestamptz <= now()
