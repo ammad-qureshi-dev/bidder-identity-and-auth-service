@@ -121,7 +121,7 @@ public class AppUserService {
 		return AppUserMapper.entityToRequest(appUser);
 	}
 
-	private static PreferredContactMethod getPreferredContactMethodHelper(AppUser appUser) {
+	public PreferredContactMethod getPreferredContactMethodHelper(AppUser appUser) {
 		var preferred = appUser.getPreferredContactMethod();
 
 		if (ContactType.EMAIL.equals(preferred)) {
